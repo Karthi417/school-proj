@@ -16,9 +16,11 @@ const float vCalibration = 41.5;
 const float currCalibration = 0.15;
 
 // Blynk and WiFi credentials
-const char auth[] = "fc5cMceVBRtipgwwhIuhQ227XR59PZLI";
-const char ssid[] = "Mi 11X";
-const char pass[] = "Karthi2004";
+const char* auth = "fc5cMceVBRtipgwwhIuhQ227XR59PZLI";
+const char* ssid[] = {"Mi 11X", "Redmi Note 12 Pro+ 5G", "iQOO NeO6"};
+const char* pass[] = {"Karthi12004", "Karthi2004", "12345678"};
+const int numNetworks =3; // Number of networks to try
+int connectedNetwork = -1; // Index of the currently connected network
 
 // EnergyMonitor instance
 EnergyMonitor emon;
@@ -44,11 +46,20 @@ void sendEnergyDataToBlynk();
 void readEnergyDataFromEEPROM();
 void saveEnergyDataToEEPROM();
 
-
 void setup()
 {
   Serial.begin(115200);
-  Blynk.begin(auth, ssid, pass);
+  
+  // Try to connect to each Wi-Fi network in the list
+  for (int i = 0; i < numNetworks; i++) {
+    Serial.printf("Attempting to connect to %s\n", ssid[i]);
+    if (connectToWiFi(i)) {
+      break; // Exit the loop if connected successfully
+    }
+  }
+  
+  // Initialize Blynk
+  Blynk.begin(auth, ssid[connectedNetwork], pass[connectedNetwork]); // Use the connectedNetwork index
 
   // Initialize the LCD
   lcd.init();
@@ -76,13 +87,29 @@ void setup()
   lcd.print("Hi, I'm WattWise");
 }
 
-
 void loop()
 {
   Blynk.run();
   timer.run();
 }
 
+bool connectToWiFi(int networkIndex) {
+  WiFi.begin(ssid[networkIndex], pass[networkIndex]);
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 10) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+    attempts++;
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("Connected to WiFi!");
+    connectedNetwork = networkIndex; // Update the connected network index
+    return true;
+  } else {
+    Serial.println("Failed to connect to WiFi.");
+    return false;
+  }
+}
 
 void sendEnergyDataToBlynk()
 {
@@ -149,7 +176,6 @@ void sendEnergyDataToBlynk()
   delay(5000); // Delay for 5 seconds
 }
 
-
 void readEnergyDataFromEEPROM()
 {
   // Read the stored kWh value from EEPROM
@@ -162,7 +188,6 @@ void readEnergyDataFromEEPROM()
     saveEnergyDataToEEPROM(); // Save initialized value to EEPROM
   }
 }
-
 
 void saveEnergyDataToEEPROM()
 {
